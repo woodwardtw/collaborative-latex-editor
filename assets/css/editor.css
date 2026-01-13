@@ -1,0 +1,295 @@
+/* Collaborative LaTeX Editor Styles */
+
+.collab-latex-container {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    overflow: hidden;
+    background: #fff;
+}
+
+.collab-latex-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 15px;
+    background: #f8f9fa;
+    border-bottom: 1px solid #ddd;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.collab-latex-toolbar-left,
+.collab-latex-toolbar-right {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.collab-latex-btn {
+    padding: 6px 12px;
+    background: #0073aa;
+    color: #fff;
+    border: none;
+    border-radius: 3px;
+    cursor: pointer;
+    font-size: 14px;
+    transition: background 0.2s;
+}
+
+.collab-latex-btn:hover {
+    background: #005a87;
+}
+
+.collab-latex-btn:disabled {
+    background: #ccc;
+    cursor: not-allowed;
+}
+
+.collab-latex-btn-secondary {
+    background: #6c757d;
+}
+
+.collab-latex-btn-secondary:hover {
+    background: #5a6268;
+}
+
+.collab-latex-presence {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.collab-latex-presence-icon {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: #0073aa;
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    font-size: 12px;
+    position: relative;
+}
+
+.collab-latex-presence-icon::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    right: 0;
+    width: 10px;
+    height: 10px;
+    background: #28a745;
+    border: 2px solid #fff;
+    border-radius: 50%;
+}
+
+.collab-latex-status {
+    font-size: 13px;
+    color: #666;
+}
+
+.collab-latex-status.saving {
+    color: #ffc107;
+}
+
+.collab-latex-status.saved {
+    color: #28a745;
+}
+
+.collab-latex-status.error {
+    color: #dc3545;
+}
+
+.collab-latex-workspace {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+}
+
+.collab-latex-editor-pane,
+.collab-latex-preview-pane {
+    flex: 1;
+    overflow: auto;
+    position: relative;
+}
+
+.collab-latex-editor-pane {
+    border-right: 1px solid #ddd;
+}
+
+.CodeMirror {
+    height: 100% !important;
+    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+    font-size: 14px;
+}
+
+.collab-latex-preview-pane {
+    padding: 20px;
+    background: #fff;
+    overflow-y: auto;
+}
+
+.collab-latex-preview-content {
+    max-width: 800px;
+    margin: 0 auto;
+    line-height: 1.6;
+}
+
+.collab-latex-preview-content .katex {
+    font-size: 1.1em;
+}
+
+.collab-latex-preview-content .katex-display {
+    margin: 1.5em 0;
+}
+
+/* Loading State */
+.collab-latex-loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    font-size: 16px;
+    color: #666;
+}
+
+.collab-latex-spinner {
+    border: 3px solid #f3f3f3;
+    border-top: 3px solid #0073aa;
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+    animation: spin 1s linear infinite;
+    margin-right: 15px;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* Collaborative Cursors */
+.collab-cursor {
+    position: absolute;
+    width: 2px;
+    height: 1.2em;
+    pointer-events: none;
+    z-index: 100;
+}
+
+.collab-cursor::before {
+    content: attr(data-user);
+    position: absolute;
+    top: -20px;
+    left: 0;
+    background: inherit;
+    color: #fff;
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-size: 11px;
+    white-space: nowrap;
+}
+
+/* Template Buttons */
+.collab-latex-templates {
+    display: flex;
+    gap: 5px;
+    margin-left: 10px;
+    padding-left: 10px;
+    border-left: 1px solid #ddd;
+}
+
+.collab-latex-template-btn {
+    padding: 4px 8px;
+    background: #fff;
+    border: 1px solid #0073aa;
+    color: #0073aa;
+    border-radius: 3px;
+    cursor: pointer;
+    font-size: 12px;
+    transition: all 0.2s;
+}
+
+.collab-latex-template-btn:hover {
+    background: #0073aa;
+    color: #fff;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .collab-latex-workspace {
+        flex-direction: column;
+    }
+    
+    .collab-latex-editor-pane {
+        border-right: none;
+        border-bottom: 1px solid #ddd;
+    }
+    
+    .collab-latex-toolbar {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    
+    .collab-latex-toolbar-left,
+    .collab-latex-toolbar-right {
+        justify-content: space-between;
+    }
+}
+
+/* Syntax Highlighting Enhancements */
+.cm-s-default .cm-keyword {
+    color: #0073aa;
+    font-weight: bold;
+}
+
+.cm-s-default .cm-atom {
+    color: #d63384;
+}
+
+.cm-s-default .cm-number {
+    color: #e83e8c;
+}
+
+.cm-s-default .cm-comment {
+    color: #6c757d;
+    font-style: italic;
+}
+
+/* Toast Notifications */
+.collab-latex-toast {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    padding: 12px 20px;
+    background: #333;
+    color: #fff;
+    border-radius: 4px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+    z-index: 10000;
+    animation: slideIn 0.3s ease-out;
+}
+
+.collab-latex-toast.success {
+    background: #28a745;
+}
+
+.collab-latex-toast.error {
+    background: #dc3545;
+}
+
+@keyframes slideIn {
+    from {
+        transform: translateX(400px);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
