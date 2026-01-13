@@ -1,19 +1,12 @@
-console.log('=== EDITOR.JS FILE LOADED ===');
-
 (function($) {
     'use strict';
 
-    console.log('=== EDITOR.JS EXECUTING ===');
-    console.log('jQuery loaded:', typeof $ !== 'undefined');
-
     class CollaborativeLatexEditor {
         constructor(containerId, postId, options = {}) {
-            console.log('CollaborativeLatexEditor constructor called', {containerId, postId});
             this.container = document.getElementById(containerId);
-            console.log('Container element:', this.container);
 
             if (!this.container) {
-                console.error('Container element not found with ID:', containerId);
+                console.error('LaTeX Editor: Container element not found with ID:', containerId);
                 return;
             }
 
@@ -35,7 +28,6 @@ console.log('=== EDITOR.JS FILE LOADED ===');
         }
         
         init() {
-            console.log('Initializing CollaborativeLatexEditor for post ID:', this.postId);
             this.setupEditor();
             this.setupPreview();
             this.setupToolbar();
@@ -70,7 +62,6 @@ console.log('=== EDITOR.JS FILE LOADED ===');
         
         setupPreview() {
             this.previewContainer = this.container.querySelector('.collab-latex-preview-content');
-            console.log('Preview container found:', !!this.previewContainer);
         }
         
         setupToolbar() {
@@ -114,16 +105,11 @@ console.log('=== EDITOR.JS FILE LOADED ===');
         }
         
         updatePreview() {
-            console.log('updatePreview() called');
             if (!this.editor || !this.previewContainer) {
-                console.error('Editor or preview container not initialized');
-                console.error('Editor exists:', !!this.editor);
-                console.error('Preview container exists:', !!this.previewContainer);
                 return;
             }
 
             const content = this.editor.getValue();
-            console.log('Editor content retrieved, length:', content ? content.length : 0);
 
             // Process the content for LaTeX rendering
             let processedContent = this.processLatexContent(content);
@@ -143,10 +129,8 @@ console.log('=== EDITOR.JS FILE LOADED ===');
                         throwOnError: false
                     });
                 } catch (error) {
-                    console.error('KaTeX rendering error:', error);
+                    console.error('LaTeX Editor: KaTeX rendering error:', error);
                 }
-            } else {
-                console.error('KaTeX auto-render not loaded. Math will not be rendered.');
             }
         }
         
@@ -155,9 +139,6 @@ console.log('=== EDITOR.JS FILE LOADED ===');
             if (!content || !content.trim()) {
                 return '<p>Start typing to see the preview...</p>';
             }
-
-            console.log('Processing content, length:', content.length);
-            console.log('Content preview:', content.substring(0, 200));
 
             // Extract title, author, date from preamble
             let title = '';
@@ -173,16 +154,10 @@ console.log('=== EDITOR.JS FILE LOADED ===');
             if (dateMatch) date = dateMatch[1] === '\\today' ? new Date().toLocaleDateString() : dateMatch[1];
 
             // Extract only content between \begin{document} and \end{document}
-            // Check for escaped versions too
             let docMatch = content.match(/\\begin\{document\}([\s\S]*?)\\end\{document\}/);
-
-            console.log('Document match found:', !!docMatch);
 
             // If no document structure found, return message
             if (!docMatch) {
-                console.log('No document structure found in content');
-                console.log('Checking for \\begin{document}:', content.includes('\\begin{document}'));
-                console.log('Checking for begin{document}:', content.includes('begin{document}'));
                 return '<p style="color: #999;">Add <code>\\begin{document}</code> and <code>\\end{document}</code> to see the preview.</p>';
             }
 
@@ -276,30 +251,21 @@ console.log('=== EDITOR.JS FILE LOADED ===');
         loadDocument() {
             this.updateStatus('Loading...', 'saving');
 
-            console.log('Loading document:', this.postId);
-            console.log('REST URL:', collabLatexConfig.restUrl);
-
             fetch(`${collabLatexConfig.restUrl}document/${this.postId}`, {
                 method: 'GET',
                 headers: {
                     'X-WP-Nonce': collabLatexConfig.restNonce
                 }
             })
-            .then(response => {
-                console.log('Load response status:', response.status);
-                return response.json();
-            })
+            .then(response => response.json())
             .then(data => {
-                console.log('Load response data:', data);
                 if (data.success) {
                     const content = data.content || this.getDefaultTemplate();
-                    console.log('Setting editor content, length:', content.length);
                     this.editor.setValue(content);
                     this.lastVersion = data.version || 0;
                     this.updatePreview();
                     this.updateStatus('Loaded', 'saved');
                 } else {
-                    console.error('Load failed:', data);
                     this.showToast('Failed to load document', 'error');
                     // Load default template as fallback
                     this.editor.setValue(this.getDefaultTemplate());
@@ -307,7 +273,7 @@ console.log('=== EDITOR.JS FILE LOADED ===');
                 }
             })
             .catch(error => {
-                console.error('Load error:', error);
+                console.error('LaTeX Editor: Failed to load document', error);
                 this.showToast('Failed to load document', 'error');
                 // Load default template as fallback
                 this.editor.setValue(this.getDefaultTemplate());
@@ -321,9 +287,6 @@ console.log('=== EDITOR.JS FILE LOADED ===');
             this.updateStatus('Saving...', 'saving');
 
             const content = this.editor.getValue();
-
-            console.log('Saving content, first 200 chars:', content.substring(0, 200));
-            console.log('Has \\begin{document}:', content.includes('\\begin{document}'));
 
             fetch(`${collabLatexConfig.restUrl}document/${this.postId}/update`, {
                 method: 'POST',
@@ -553,35 +516,17 @@ $$
     
     // Wait for all required libraries to load
     function initializeEditors() {
-        console.log('initializeEditors() called');
-
         // Check if all required libraries are loaded
-        if (typeof CodeMirror === 'undefined') {
-            console.error('CodeMirror not loaded yet');
+        if (typeof CodeMirror === 'undefined' || typeof renderMathInElement === 'undefined') {
             return;
         }
 
-        if (typeof renderMathInElement === 'undefined') {
-            console.error('KaTeX auto-render not loaded yet');
-            return;
-        }
-
-        console.log('All libraries loaded successfully');
-
-        const containers = $('.collab-latex-container');
-        console.log('Found', containers.length, 'LaTeX editor containers');
-
-        containers.each(function() {
+        $('.collab-latex-container').each(function() {
             const postId = $(this).data('post-id');
             const containerId = $(this).attr('id');
 
-            console.log('Container found:', {containerId, postId});
-
             if (postId && containerId) {
-                console.log('Initializing editor for container:', containerId, 'post ID:', postId);
                 new CollaborativeLatexEditor(containerId, postId);
-            } else {
-                console.error('Missing postId or containerId', {postId, containerId});
             }
         });
     }
@@ -590,7 +535,6 @@ $$
     $(document).ready(function() {
         // Wait a bit for CDN scripts to load if needed
         if (typeof CodeMirror === 'undefined' || typeof renderMathInElement === 'undefined') {
-            console.log('Waiting for libraries to load...');
             setTimeout(initializeEditors, 500);
         } else {
             initializeEditors();

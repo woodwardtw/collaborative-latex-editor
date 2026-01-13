@@ -15,7 +15,7 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-define('COLLAB_LATEX_VERSION', '1.0.2');
+define('COLLAB_LATEX_VERSION', '1.0.3');
 define('COLLAB_LATEX_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('COLLAB_LATEX_PLUGIN_URL', plugin_dir_url(__FILE__));
 
@@ -179,9 +179,6 @@ class Collaborative_LaTeX_Editor {
         $body = $request->get_body();
         $data = json_decode($body, true);
         $content = isset($data['content']) ? $data['content'] : '';
-
-        error_log('Content received (first 200 chars): ' . substr($content, 0, 200));
-        error_log('Has \\begin{document}: ' . (strpos($content, '\\begin{document}') !== false ? 'yes' : 'no'));
 
         $current_version = intval(get_post_meta($post_id, '_latex_version', true));
 
