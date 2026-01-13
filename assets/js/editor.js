@@ -1,9 +1,22 @@
+console.log('=== EDITOR.JS FILE LOADED ===');
+
 (function($) {
     'use strict';
-    
+
+    console.log('=== EDITOR.JS EXECUTING ===');
+    console.log('jQuery loaded:', typeof $ !== 'undefined');
+
     class CollaborativeLatexEditor {
         constructor(containerId, postId, options = {}) {
+            console.log('CollaborativeLatexEditor constructor called', {containerId, postId});
             this.container = document.getElementById(containerId);
+            console.log('Container element:', this.container);
+
+            if (!this.container) {
+                console.error('Container element not found with ID:', containerId);
+                return;
+            }
+
             this.postId = postId;
             this.editor = null;
             this.lastVersion = 0;
@@ -17,11 +30,12 @@
                 autoSave: true,
                 ...options
             };
-            
+
             this.init();
         }
         
         init() {
+            console.log('Initializing CollaborativeLatexEditor for post ID:', this.postId);
             this.setupEditor();
             this.setupPreview();
             this.setupToolbar();
@@ -56,6 +70,7 @@
         
         setupPreview() {
             this.previewContainer = this.container.querySelector('.collab-latex-preview-content');
+            console.log('Preview container found:', !!this.previewContainer);
         }
         
         setupToolbar() {
@@ -99,87 +114,217 @@
         }
         
         updatePreview() {
+            console.log('updatePreview() called');
+            if (!this.editor || !this.previewContainer) {
+                console.error('Editor or preview container not initialized');
+                console.error('Editor exists:', !!this.editor);
+                console.error('Preview container exists:', !!this.previewContainer);
+                return;
+            }
+
             const content = this.editor.getValue();
-            
+            console.log('Editor content retrieved, length:', content ? content.length : 0);
+
             // Process the content for LaTeX rendering
             let processedContent = this.processLatexContent(content);
-            
+
             this.previewContainer.innerHTML = processedContent;
-            
+
             // Render LaTeX with KaTeX
-            if (window.renderMathInElement) {
-                renderMathInElement(this.previewContainer, {
-                    delimiters: [
-                        {left: '$$', right: '$$', display: true},
-                        {left: '\\[', right: '\\]', display: true},
-                        {left: '$', right: '$', display: false},
-                        {left: '\\(', right: '\\)', display: false}
-                    ],
-                    throwOnError: false
-                });
+            if (typeof renderMathInElement !== 'undefined') {
+                try {
+                    renderMathInElement(this.previewContainer, {
+                        delimiters: [
+                            {left: '$$', right: '$$', display: true},
+                            {left: '\\[', right: '\\]', display: true},
+                            {left: '$', right: '$', display: false},
+                            {left: '\\(', right: '\\)', display: false}
+                        ],
+                        throwOnError: false
+                    });
+                } catch (error) {
+                    console.error('KaTeX rendering error:', error);
+                }
+            } else {
+                console.error('KaTeX auto-render not loaded. Math will not be rendered.');
             }
         }
         
         processLatexContent(content) {
-            // Convert LaTeX environments to HTML for better display
-            let processed = content;
-            
+            // If content is empty or whitespace only
+            if (!content || !content.trim()) {
+                return '<p>Start typing to see the preview...</p>';
+            }
+
+            console.log('Processing content, length:', content.length);
+            console.log('Content preview:', content.substring(0, 200));
+
+            // Extract title, author, date from preamble
+            let title = '';
+            let author = '';
+            let date = '';
+
+            const titleMatch = content.match(/\\title\{([^}]+)\}/);
+            const authorMatch = content.match(/\\author\{([^}]+)\}/);
+            const dateMatch = content.match(/\\date\{([^}]+)\}/);
+
+            if (titleMatch) title = titleMatch[1];
+            if (authorMatch) author = authorMatch[1];
+            if (dateMatch) date = dateMatch[1] === '\\today' ? new Date().toLocaleDateString() : dateMatch[1];
+
+            // Extract only content between \begin{document} and \end{document}
+            // Check for escaped versions too
+            let docMatch = content.match(/\\begin\{document\}([\s\S]*?)\\end\{document\}/);
+
+            console.log('Document match found:', !!docMatch);
+
+            // If no document structure found, return message
+            if (!docMatch) {
+                console.log('No document structure found in content');
+                console.log('Checking for \\begin{document}:', content.includes('\\begin{document}'));
+                console.log('Checking for begin{document}:', content.includes('begin{document}'));
+                return '<p style="color: #999;">Add <code>\\begin{document}</code> and <code>\\end{document}</code> to see the preview.</p>';
+            }
+
+            let processed = docMatch[1];
+
+            // Handle \maketitle
+            if (processed.includes('\\maketitle')) {
+                let titleHtml = '';
+                if (title) titleHtml += `<h1 class="latex-title">${title}</h1>`;
+                if (author) titleHtml += `<p class="latex-author">${author}</p>`;
+                if (date) titleHtml += `<p class="latex-date">${date}</p>`;
+                processed = processed.replace(/\\maketitle/, titleHtml);
+            }
+
+            // Protect display math blocks from paragraph processing
+            const mathBlocks = [];
+            let mathIndex = 0;
+
+            // Protect $$ ... $$ blocks
+            processed = processed.replace(/\$\$([\s\S]*?)\$\$/g, (match) => {
+                const placeholder = `___MATH_BLOCK_${mathIndex}___`;
+                mathBlocks[mathIndex] = match;
+                mathIndex++;
+                return placeholder;
+            });
+
+            // Protect \[ ... \] blocks
+            processed = processed.replace(/\\\[([\s\S]*?)\\\]/g, (match) => {
+                const placeholder = `___MATH_BLOCK_${mathIndex}___`;
+                mathBlocks[mathIndex] = match;
+                mathIndex++;
+                return placeholder;
+            });
+
+            // Protect inline math blocks
+            processed = processed.replace(/\$([^\$]+)\$/g, (match) => {
+                const placeholder = `___MATH_BLOCK_${mathIndex}___`;
+                mathBlocks[mathIndex] = match;
+                mathIndex++;
+                return placeholder;
+            });
+
+            processed = processed.replace(/\\\(([^)]+)\\\)/g, (match) => {
+                const placeholder = `___MATH_BLOCK_${mathIndex}___`;
+                mathBlocks[mathIndex] = match;
+                mathIndex++;
+                return placeholder;
+            });
+
             // Convert section headers
             processed = processed.replace(/\\section\{([^}]+)\}/g, '<h2>$1</h2>');
             processed = processed.replace(/\\subsection\{([^}]+)\}/g, '<h3>$1</h3>');
             processed = processed.replace(/\\subsubsection\{([^}]+)\}/g, '<h4>$1</h4>');
-            
-            // Convert paragraphs
-            processed = processed.replace(/\n\n/g, '</p><p>');
-            processed = '<p>' + processed + '</p>';
-            
+
             // Convert lists
             processed = processed.replace(/\\begin\{itemize\}([\s\S]*?)\\end\{itemize\}/g, (match, items) => {
                 const listItems = items.replace(/\\item\s+([^\n]*)/g, '<li>$1</li>');
                 return '<ul>' + listItems + '</ul>';
             });
-            
+
             processed = processed.replace(/\\begin\{enumerate\}([\s\S]*?)\\end\{enumerate\}/g, (match, items) => {
                 const listItems = items.replace(/\\item\s+([^\n]*)/g, '<li>$1</li>');
                 return '<ol>' + listItems + '</ol>';
             });
-            
+
+            // Convert paragraphs (but preserve existing HTML tags)
+            processed = processed.replace(/\n\n+/g, '</p><p>');
+
+            // Only wrap in <p> if not already starting with a tag
+            if (!processed.trim().startsWith('<')) {
+                processed = '<p>' + processed + '</p>';
+            }
+
+            // Clean up empty paragraphs and fix nested tags
+            processed = processed.replace(/<p>\s*<\/p>/g, '');
+            processed = processed.replace(/<p>(\s*<h[1-6])/g, '$1');
+            processed = processed.replace(/(<\/h[1-6]>)\s*<\/p>/g, '$1');
+            processed = processed.replace(/<p>(\s*<ul)/g, '$1');
+            processed = processed.replace(/(<\/ul>)\s*<\/p>/g, '$1');
+            processed = processed.replace(/<p>(\s*<ol)/g, '$1');
+            processed = processed.replace(/(<\/ol>)\s*<\/p>/g, '$1');
+
+            // Restore math blocks
+            for (let i = 0; i < mathBlocks.length; i++) {
+                processed = processed.replace(`___MATH_BLOCK_${i}___`, mathBlocks[i]);
+            }
+
             return processed;
         }
         
         loadDocument() {
             this.updateStatus('Loading...', 'saving');
-            
+
+            console.log('Loading document:', this.postId);
+            console.log('REST URL:', collabLatexConfig.restUrl);
+
             fetch(`${collabLatexConfig.restUrl}document/${this.postId}`, {
                 method: 'GET',
                 headers: {
                     'X-WP-Nonce': collabLatexConfig.restNonce
                 }
             })
-            .then(response => response.json())
+            .then(response => {
+                console.log('Load response status:', response.status);
+                return response.json();
+            })
             .then(data => {
+                console.log('Load response data:', data);
                 if (data.success) {
-                    this.editor.setValue(data.content || this.getDefaultTemplate());
+                    const content = data.content || this.getDefaultTemplate();
+                    console.log('Setting editor content, length:', content.length);
+                    this.editor.setValue(content);
                     this.lastVersion = data.version || 0;
                     this.updatePreview();
                     this.updateStatus('Loaded', 'saved');
                 } else {
+                    console.error('Load failed:', data);
                     this.showToast('Failed to load document', 'error');
+                    // Load default template as fallback
+                    this.editor.setValue(this.getDefaultTemplate());
+                    this.updatePreview();
                 }
             })
             .catch(error => {
                 console.error('Load error:', error);
                 this.showToast('Failed to load document', 'error');
+                // Load default template as fallback
+                this.editor.setValue(this.getDefaultTemplate());
+                this.updatePreview();
             });
         }
         
         saveDocument() {
             if (!this.isLocalChange) return;
-            
+
             this.updateStatus('Saving...', 'saving');
-            
+
             const content = this.editor.getValue();
-            
+
+            console.log('Saving content, first 200 chars:', content.substring(0, 200));
+            console.log('Has \\begin{document}:', content.includes('\\begin{document}'));
+
             fetch(`${collabLatexConfig.restUrl}document/${this.postId}/update`, {
                 method: 'POST',
                 headers: {
@@ -346,10 +491,16 @@
 
 \\section{Introduction}
 
-Start writing your LaTeX document here. You can use inline math like $E = mc^2$ or display math:
+Start writing your LaTeX document here. You can use inline math like $E = mc^2$ or display math with $$...$$:
+
+$$
+\\int_{-\\infty}^{\\infty} e^{-x^2} dx = \\sqrt{\\pi}
+$$
+
+You can also use \\[...\\] for display math:
 
 \\[
-\\int_{-\\infty}^{\\infty} e^{-x^2} dx = \\sqrt{\\pi}
+\\sum_{n=1}^{\\infty} \\frac{1}{n^2} = \\frac{\\pi^2}{6}
 \\]
 
 \\section{Examples}
@@ -357,20 +508,38 @@ Start writing your LaTeX document here. You can use inline math like $E = mc^2$ 
 \\subsection{Equations}
 
 The quadratic formula is:
-\\begin{equation}
+
+$$
 x = \\frac{-b \\pm \\sqrt{b^2 - 4ac}}{2a}
-\\end{equation}
+$$
+
+The Pythagorean theorem states that $a^2 + b^2 = c^2$ for right triangles.
 
 \\subsection{Matrices}
 
 A matrix example:
-\\[
+
+$$
 \\begin{bmatrix}
 1 & 2 & 3 \\\\
 4 & 5 & 6 \\\\
 7 & 8 & 9
 \\end{bmatrix}
-\\]
+$$
+
+\\subsection{More Examples}
+
+Fractions: $\\frac{a}{b}$ or in display mode:
+
+$$
+\\frac{\\partial f}{\\partial x} = \\lim_{h \\to 0} \\frac{f(x+h) - f(x)}{h}
+$$
+
+Summations and integrals:
+
+$$
+\\int_0^1 x^2 \\, dx = \\frac{1}{3} \\quad \\text{and} \\quad \\sum_{k=1}^n k = \\frac{n(n+1)}{2}
+$$
 
 \\end{document}`;
         }
@@ -382,16 +551,50 @@ A matrix example:
         }
     }
     
-    // Initialize editors on page load
-    $(document).ready(function() {
-        $('.collab-latex-container').each(function() {
+    // Wait for all required libraries to load
+    function initializeEditors() {
+        console.log('initializeEditors() called');
+
+        // Check if all required libraries are loaded
+        if (typeof CodeMirror === 'undefined') {
+            console.error('CodeMirror not loaded yet');
+            return;
+        }
+
+        if (typeof renderMathInElement === 'undefined') {
+            console.error('KaTeX auto-render not loaded yet');
+            return;
+        }
+
+        console.log('All libraries loaded successfully');
+
+        const containers = $('.collab-latex-container');
+        console.log('Found', containers.length, 'LaTeX editor containers');
+
+        containers.each(function() {
             const postId = $(this).data('post-id');
             const containerId = $(this).attr('id');
-            
+
+            console.log('Container found:', {containerId, postId});
+
             if (postId && containerId) {
+                console.log('Initializing editor for container:', containerId, 'post ID:', postId);
                 new CollaborativeLatexEditor(containerId, postId);
+            } else {
+                console.error('Missing postId or containerId', {postId, containerId});
             }
         });
+    }
+
+    // Initialize editors on page load
+    $(document).ready(function() {
+        // Wait a bit for CDN scripts to load if needed
+        if (typeof CodeMirror === 'undefined' || typeof renderMathInElement === 'undefined') {
+            console.log('Waiting for libraries to load...');
+            setTimeout(initializeEditors, 500);
+        } else {
+            initializeEditors();
+        }
     });
     
     // Expose to global scope

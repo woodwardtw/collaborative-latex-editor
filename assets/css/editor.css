@@ -148,6 +148,29 @@
     margin: 1.5em 0;
 }
 
+/* LaTeX Document Title Styles */
+.collab-latex-preview-content .latex-title {
+    text-align: center;
+    font-size: 2em;
+    font-weight: bold;
+    margin: 1em 0 0.5em 0;
+    color: #333;
+}
+
+.collab-latex-preview-content .latex-author {
+    text-align: center;
+    font-size: 1.1em;
+    margin: 0.5em 0;
+    color: #555;
+}
+
+.collab-latex-preview-content .latex-date {
+    text-align: center;
+    font-size: 0.9em;
+    margin: 0.5em 0 2em 0;
+    color: #666;
+}
+
 /* Loading State */
 .collab-latex-loading {
     display: flex;

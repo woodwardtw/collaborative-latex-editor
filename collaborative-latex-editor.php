@@ -15,7 +15,7 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-define('COLLAB_LATEX_VERSION', '1.0.0');
+define('COLLAB_LATEX_VERSION', '1.0.2');
 define('COLLAB_LATEX_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('COLLAB_LATEX_PLUGIN_URL', plugin_dir_url(__FILE__));
 
@@ -42,6 +42,7 @@ class Collaborative_LaTeX_Editor {
         add_action('rest_api_init', array($this, 'register_rest_routes'));
         add_action('wp_ajax_save_latex_document', array($this, 'ajax_save_document'));
         add_action('wp_ajax_get_latex_document', array($this, 'ajax_get_document'));
+        add_filter('the_content', array($this, 'filter_latex_document_content'));
     }
     
     public function register_post_type() {
@@ -86,7 +87,7 @@ class Collaborative_LaTeX_Editor {
             
             // Plugin assets
             wp_enqueue_style('collab-latex-editor', COLLAB_LATEX_PLUGIN_URL . 'assets/css/editor.css', array(), COLLAB_LATEX_VERSION);
-            wp_enqueue_script('collab-latex-editor', COLLAB_LATEX_PLUGIN_URL . 'assets/js/editor.js', array('jquery', 'katex', 'codemirror'), COLLAB_LATEX_VERSION, true);
+            wp_enqueue_script('collab-latex-editor', COLLAB_LATEX_PLUGIN_URL . 'assets/js/editor.js', array('jquery', 'katex-auto-render', 'codemirror'), COLLAB_LATEX_VERSION, true);
             
             wp_localize_script('collab-latex-editor', 'collabLatexConfig', array(
                 'ajaxUrl' => admin_url('admin-ajax.php'),
@@ -132,7 +133,11 @@ class Collaborative_LaTeX_Editor {
                 ),
                 'content' => array(
                     'required' => true,
-                    'type' => 'string'
+                    'type' => 'string',
+                    'sanitize_callback' => function($param) {
+                        // Don't sanitize - preserve backslashes for LaTeX
+                        return $param;
+                    }
                 ),
             ),
         ));
@@ -169,14 +174,23 @@ class Collaborative_LaTeX_Editor {
     
     public function update_document_rest($request) {
         $post_id = $request->get_param('id');
-        $content = $request->get_param('content');
+
+        // Get the raw body to preserve backslashes
+        $body = $request->get_body();
+        $data = json_decode($body, true);
+        $content = isset($data['content']) ? $data['content'] : '';
+
+        error_log('Content received (first 200 chars): ' . substr($content, 0, 200));
+        error_log('Has \\begin{document}: ' . (strpos($content, '\\begin{document}') !== false ? 'yes' : 'no'));
+
         $current_version = intval(get_post_meta($post_id, '_latex_version', true));
-        
-        update_post_meta($post_id, '_latex_content', $content);
+
+        // WordPress will strip slashes when retrieving, so we need to add them when saving
+        update_post_meta($post_id, '_latex_content', wp_slash($content));
         update_post_meta($post_id, '_latex_version', $current_version + 1);
         update_post_meta($post_id, '_latex_last_modified', current_time('mysql'));
         update_post_meta($post_id, '_latex_last_author', get_current_user_id());
-        
+
         return rest_ensure_response(array(
             'success' => true,
             'version' => $current_version + 1
@@ -210,16 +224,20 @@ class Collaborative_LaTeX_Editor {
     
     public function ajax_save_document() {
         check_ajax_referer('latex_editor_nonce', 'nonce');
-        
+
         $post_id = intval($_POST['post_id']);
-        $content = wp_unslash($_POST['content']);
-        
+        // Don't use wp_unslash - we want to preserve backslashes
+        $content = $_POST['content'];
+
         if (!current_user_can('edit_post', $post_id)) {
             wp_send_json_error('Permission denied');
         }
-        
+
+        // Preserve backslashes in LaTeX content
+        $content = wp_slash($content);
+
         update_post_meta($post_id, '_latex_content', $content);
-        
+
         wp_send_json_success(array(
             'message' => 'Document saved successfully'
         ));
@@ -246,16 +264,42 @@ class Collaborative_LaTeX_Editor {
             'id' => get_the_ID(),
             'height' => '600px'
         ), $atts);
-        
+
         $post_id = intval($atts['id']);
-        
+
         if (!current_user_can('read_post', $post_id)) {
             return '<p>You do not have permission to view this document.</p>';
         }
-        
+
         ob_start();
         include COLLAB_LATEX_PLUGIN_DIR . 'templates/editor-template.php';
         return ob_get_clean();
+    }
+
+    public function filter_latex_document_content($content) {
+        // Only apply on single latex_document posts on the front end
+        if (is_singular('latex_document') && !is_admin() && in_the_loop() && is_main_query()) {
+            $post_id = get_the_ID();
+
+            if (!current_user_can('read_post', $post_id)) {
+                return '<p>You do not have permission to view this document.</p>';
+            }
+
+            // Generate the editor interface
+            $atts = array(
+                'id' => $post_id,
+                'height' => '800px' // Taller height for full-page display
+            );
+
+            ob_start();
+            include COLLAB_LATEX_PLUGIN_DIR . 'templates/editor-template.php';
+            $editor_html = ob_get_clean();
+
+            // Return editor interface instead of default content
+            return $editor_html;
+        }
+
+        return $content;
     }
 }
 
